@@ -487,6 +487,30 @@ def distractedOrNot(distractors, licks, delay=1):
     
     return firstlick, distractedArray
 
+# This revised version of distracted_or_not combined two different iterations of this
+# function: one written by Jaime and one written by Kate. This newer version outputs
+# pdps and the Boolean array as well as times of distracted and non distracted trials
+    
+def distracted_or_not(distractors, licks, delay=1):   
+    pdp = [] # post-distraction pause
+    distractedArray = []
+
+    for d in distractors:               
+        try:
+            pdp.append([i-d for i in licks if (i > d)][0])
+        except IndexError:
+            pdp.append(np.NaN)
+
+    distracted_boolean_array = np.array([i>delay for i in pdp], dtype=bool)
+    
+    distracted = [d for d,l in zip(distractors, distracted_boolean_array) if l]
+    notdistracted = [d for d,l in zip(distractors, distracted_boolean_array) if not l] 
+    
+    if np.isnan(pdp)[-1] == 1: 
+        distracted_boolean_array[-1] = True
+    
+    return [distracted, notdistracted], distracted_boolean_array, pdp 
+
 def calcDistractors(licks):
 #    disStart = [licks[idx-2] for idx, val in enumerate(licks) if (val - licks[idx-2]) < 1]
 #    disEnd = [val for idx, val in enumerate(licks) if (val - licks[idx-2]) < 1]

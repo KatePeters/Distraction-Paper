@@ -1,0 +1,13 @@
+
+.spyproject/*
+
+data/*
+figs/*
+output/*
+stats/*
+__pycache__/*
+
+*/.ipynb_checkpoints/*.ipynb
+.ipynb_checkpoints
+
+*.pyc

@@ -9,6 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from itertools import chain, count
 from collections import Sequence
+import matplotlib.cbook as cbook
+import matplotlib.mlab as mlab
+import JM_general_functions as jmf
 """
 This function will create bar+scatter plots when passed a 1 or 2 dimensional
 array. Data needs to be passed in as a numpy object array, e.g.
@@ -32,6 +35,8 @@ def barscatter(data, transpose = False, unequal=False,
                 barwidth = .9,
                 paired = False,
                 spaced = False,
+                yspace = 20,
+                xspace = 0.1,
                 barfacecoloroption = 'same', # other options 'between' or 'individual'
                 barfacecolor = ['white'],
                 baredgecoloroption = 'same',
@@ -44,6 +49,7 @@ def barscatter(data, transpose = False, unequal=False,
                 scatterlinecolor = 'grey', # Don't put this value in a list
                 scattersize = 80,
                 scatteralpha = 1,
+                spreadscatters = False,
                 linewidth=1,
                 xlim=[],
                 ylim=[],
@@ -53,10 +59,12 @@ def barscatter(data, transpose = False, unequal=False,
                 itemlabel = 'none',
                 barlabels = [],
                 barlabeloffset=0.025,
-                grouplabeloffset=0.11,
+                grouplabeloffset=0,
                 yaxisparams = 'auto',
                 show_legend = 'none',
                 legendloc='upper right',
+                xfontsize=8,
+                barbaseline=0,
                 ax=[]):
 
     if unequal == True:
@@ -150,8 +158,9 @@ def barscatter(data, transpose = False, unequal=False,
     for x, y, bfc, bec in zip(xvals.flatten(), barMeans.flatten(),
                               barfacecolorArray, baredgecolorArray):
         barx.append(x)
-        barlist.append(ax.bar(x, y, barwidth,
+        barlist.append(ax.bar(x, y-barbaseline, barwidth,
                          facecolor = bfc, edgecolor = bec,
+                         bottom=barbaseline,
                          zorder=-1))
     
     # Uncomment these lines to show method for changing bar colors outside of
@@ -164,13 +173,14 @@ def barscatter(data, transpose = False, unequal=False,
     if paired == False:
         for x, Yarray, scf, sce  in zip(xvals.flatten(), data.flatten(),
                                         scfacecolorArray, scedgecolorArray):
-            for y in Yarray:
-                if spaced == True:
-                    sclist.append(ax.scatter(x+np.random.random(size=1)*barallocation, y, s = scattersize,
+            if spaced == True:
+                xVals, yVals = xyspacer(ax, x, Yarray, bindist=yspace, space=xspace)
+                sclist.append(ax.scatter(xVals, yVals, s = scattersize,
                              c = scf,
                              edgecolors = sce,
-                             zorder=20))
-                else:
+                             zorder=20))           
+            else:
+                for y in Yarray:
                      sclist.append(ax.scatter(x, y, s = scattersize,
                                      c = scf,
                                      edgecolors = sce,
@@ -202,41 +212,39 @@ def barscatter(data, transpose = False, unequal=False,
     if xlabel != 'none':
         ax.set_xlabel(xlabel)
     
-    xrange = ax.get_xlim()[1] - ax.get_xlim()[0]
-    yrange = ax.get_ylim()[1] - ax.get_ylim()[0]
-    
     # Set range and tick values for Y axis
     if yaxisparams != 'auto':
         ax.set_ylim(yaxisparams[0])
-        plt.yticks(yaxisparams[1])
+        ax.set_yticks(yaxisparams[1])
        
     # X ticks
     ax.tick_params(
         axis='x',          # changes apply to the x-axis
         which='both',      # both major and minor ticks are affected
-        bottom='off',      # ticks along the bottom edge are off
-        top='off') # labels along the bottom edge are off
+        bottom=False,      # ticks along the bottom edge are off
+        top=False,
+        labelbottom=False) # labels along the bottom edge are off
 
     if len(xlim) > 0:
         ax.set_xlim(xlim)
     if len(ylim) > 0:
         ax.set_ylim(ylim)
         
+    xrange = ax.get_xlim()[1] - ax.get_xlim()[0]
+    yrange = ax.get_ylim()[1] - ax.get_ylim()[0]
+        
     if grouplabel == 'auto':
         ax.tick_params(labelbottom='off')
     else:
-        if len(barlabels) > 0:
-            ax.tick_params(labelbottom='off')
+        ax.tick_params(labelbottom='off')
 
-            groupx = np.arange(1, len(grouplabel)+1)
-            xpos = (groupx - ax.get_xlim()[0])/xrange
-            ypos = (-ax.get_ylim()[0]/yrange) - grouplabeloffset
+        groupx = np.arange(1, len(grouplabel)+1)
+        if len(xlim) > 0:
+            groupx = [x for x in groupx]
+        xpos = (groupx - ax.get_xlim()[0])/xrange
 
-            for x, label in zip(xpos, grouplabel):
-                ax.text(x, ypos, label, va='top', ha='center', transform=ax.transAxes)
-        else:
-            ax.set_xticks(range(1,nGroups+1))
-            ax.set_xticklabels(grouplabel)
+        for x, label in zip(xpos, grouplabel):
+            ax.text(x, -0.05+grouplabeloffset, label, va='top', ha='center', fontsize=xfontsize, transform=ax.transAxes)
         
     if len(barlabels) > 0:
         if len(barlabels) != len(barx):
@@ -244,9 +252,10 @@ def barscatter(data, transpose = False, unequal=False,
         else:
             xpos = (barx - ax.get_xlim()[0])/xrange
             ypos = (-ax.get_ylim()[0]/yrange) - barlabeloffset
+
             for x, label in zip(xpos, barlabels):
-                ax.text(x, ypos, label, va='top', ha='center', transform=ax.transAxes)
-    
+                ax.text(x, ypos, label, va='top', ha='center', fontsize=xfontsize, transform=ax.transAxes)
+
     # Hide the right and top spines and set bottom to zero
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -335,11 +344,33 @@ def data2obj2D(data):
             obj[i][j] = np.array(y)
     return obj
 
+def xyspacer(ax, x, yvals, bindist=20, space=0.1):
+    
+    histrange=[]
+    histrange.append(min(ax.get_ylim()[0], min(yvals)))
+    histrange.append(max(ax.get_ylim()[1], max(yvals)))
+
+    yhist = np.histogram(yvals, bins=bindist, range=histrange)
+    
+    xvals=[]
+    for ybin in yhist[0]:
+        if ybin == 1:
+            xvals.append(x)
+        elif ybin > 1:          
+            temp_vals = np.linspace(x-space, x+space, num=ybin)
+            for val in temp_vals:
+                xvals.append(val)
+                
+    yvals.sort()
+
+    return xvals, yvals
+
 def depth(seq):
     for level in count():
         if not seq:
             return level
         seq = list(chain.from_iterable(s for s in seq if isinstance(s, Sequence)))
+
         
 # Arguments to include in function
 
@@ -704,12 +735,12 @@ def invisible_axes(ax):
     for sp in ['left', 'right', 'top', 'bottom']:
         ax.spines[sp].set_visible(False)
 
-def shadedError(ax, yarray, linecolor='black', errorcolor = 'xkcd:silver'):
+def shadedError(ax, yarray, linecolor='black', errorcolor = 'xkcd:silver', linewidth=1):
     yarray = np.array(yarray)
-    y = np.mean(yarray)
+    y = np.mean(yarray, axis=0)
     yerror = np.std(yarray)/np.sqrt(len(yarray))
     x = np.arange(0, len(y))
-    ax.plot(x, y, color=linecolor)
+    ax.plot(x, y, color=linecolor, linewidth=linewidth)
     ax.fill_between(x, y-yerror, y+yerror, color=errorcolor, alpha=0.4)
     
     return ax
@@ -744,3 +775,15 @@ def lighten_color(color, amount=0.5):
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
+def get_violinstats(dataset, points=100, bw_method=None):
+
+    def _kde_method(X, coords):
+        # fallback gracefully if the vector contains only one value
+        if np.all(X[0] == X):
+            return (X[0] == coords).astype(float)
+        kde = mlab.GaussianKDE(X, bw_method)
+        return kde.evaluate(coords)
+
+    vpstats = cbook.violin_stats(dataset, _kde_method, points=points)
+    return vpstats
